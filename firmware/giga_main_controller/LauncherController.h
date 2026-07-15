@@ -24,13 +24,14 @@ class LauncherController {
 
   enum class MagazineState : uint8_t {
     kAtRest,
-    kMovingForward,
-    kReturning,
+    kMovingToShotPosition,
     kWaitingBetweenRapidShots,
   };
 
   void startMotor();
   void stopMotor();
+  void moveToNextShotPosition(unsigned long nowMs);
+  void writeMagazineAngle(int16_t angleDegrees);
   void stopMagazine();
   void updateMagazine(unsigned long nowMs);
 
@@ -38,6 +39,8 @@ class LauncherController {
   MagazineState magazineState_ = MagazineState::kAtRest;
   bool rapidFireActive_ = false;
   uint8_t rapidShotsCompleted_ = 0;
+  uint8_t nextShotPositionIndex_ = 0;
+  int16_t magazineAngleDegrees_ = 0;
   unsigned long armingStartedMs_ = 0;
   unsigned long magazineMotionStartedMs_ = 0;
   Servo magazineServo_;

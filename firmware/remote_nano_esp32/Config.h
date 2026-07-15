@@ -6,7 +6,7 @@ namespace rivaler_remote_config {
 
 // ESP-NOW peer identity. The remote sends to the Robot Nano and receives status
 // from it over the same peer relationship.
-constexpr uint8_t kRobotNanoMac[6] = {0x20, 0x6E, 0xF1, 0x32, 0x60, 0xBC};
+constexpr uint8_t kRobotNanoMac[6] = {0x3C, 0x84, 0x27, 0xFC, 0xEF, 0x2C};
 constexpr uint8_t kEspNowChannel = 0;  // Use the current Wi-Fi channel.
 
 constexpr unsigned long kEspNowStatusTimeoutMs = 1500;
@@ -23,19 +23,20 @@ constexpr int kJoystickDeadZone = 160;
 constexpr bool kJoystickYPositiveIsForward = true;
 
 // All switches and buttons connect to ground when active and use INPUT_PULLUP.
-constexpr int kQuickShootButtonPin = 2;
-constexpr int kRapidFireButtonPin = 3;
-constexpr int kTakePictureButtonPin = 4;
-constexpr int kEjectSdButtonPin = 5;
-constexpr int kFollowLineButtonPin = 6;  // Joystick push switch.
-constexpr int kArmSwitchPin = 7;
+constexpr int kQuickShootButtonPin = D2;
+constexpr int kRapidFireButtonPin = D3;
+constexpr int kTakePictureButtonPin = D4;
+constexpr int kEjectSdButtonPin = D5;
+constexpr int kFollowLineButtonPin = D6;  // Joystick push switch.
+constexpr int kArmSwitchPin = D7;
+constexpr int kEmergencyStopButtonPin = D12;
 constexpr bool kInputsAreActiveLow = true;
 constexpr unsigned long kDebounceMs = 30;
 
-constexpr int kBuzzerPin = 8;
-constexpr int kLauncherArmedLedPin = 9;
-constexpr int kLineDetectedLedPin = 10;
-constexpr int kLineFollowingLedPin = 11;
+constexpr int kBuzzerPin = D8;
+constexpr int kLauncherArmedLedPin = D9;
+constexpr int kLineDetectedLedPin = D10;
+constexpr int kLineFollowingLedPin = D11;
 constexpr unsigned long kSafetyBuzzerOnMs = 100;
 constexpr unsigned long kSafetyBuzzerOffMs = 400;
 constexpr unsigned long kLinkLostBuzzerOnMs = 60;

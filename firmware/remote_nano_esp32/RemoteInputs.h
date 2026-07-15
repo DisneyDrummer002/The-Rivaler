@@ -2,15 +2,16 @@
 
 #include <Arduino.h>
 
-#include <RivalerProtocol.h>
+#include "RivalerProtocol.h"
 
 class RemoteInputs {
  public:
   void begin();
   void update(unsigned long nowMs);
 
-  rivaler::RemoteControlPayload createControlPayload() const;
-  void markEventsQueued(uint16_t queuedEvents);
+  rivaler::RemoteControlPayload createControlPayload(uint16_t edgeEvents) const;
+  uint16_t pendingEvents() const;
+  void acknowledgeEvents(uint16_t acknowledgedEvents);
 
  private:
   struct InputButton {
@@ -34,5 +35,6 @@ class RemoteInputs {
   InputButton ejectSdButton_{};
   InputButton followLineButton_{};
   InputButton armSwitch_{};
+  InputButton emergencyStopButton_{};
   uint16_t pendingEvents_ = 0;
 };

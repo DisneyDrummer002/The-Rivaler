@@ -2,7 +2,7 @@
 
 #include <Arduino.h>
 
-#include <RivalerProtocol.h>
+#include "RivalerProtocol.h"
 
 class MegaCameraCommand {
  public:

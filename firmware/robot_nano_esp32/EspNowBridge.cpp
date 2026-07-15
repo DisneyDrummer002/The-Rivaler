@@ -53,12 +53,34 @@ bool EspNowBridge::takeLatestRemoteControl(rivaler::Packet& packet) {
 
 bool EspNowBridge::sendRobotStatus(const rivaler::Packet& packet) {
   if (packet.type != rivaler::MessageType::kRobotStatus ||
-      !rivaler::isPacketValid(packet, rivaler::packetWireSize(packet))) {
+      !rivaler::isPacketValid(packet)) {
+    return false;
+  }
+
+  return sendPacket(packet);
+}
+
+bool EspNowBridge::sendPendingAcknowledgement() {
+  rivaler::Packet acknowledgement{};
+  portENTER_CRITICAL(&packetMutex_);
+  const bool hasAcknowledgement = acknowledgementPending_;
+  if (hasAcknowledgement) {
+    acknowledgement = pendingAcknowledgement_;
+    acknowledgementPending_ = false;
+  }
+  portEXIT_CRITICAL(&packetMutex_);
+
+  return !hasAcknowledgement || sendPacket(acknowledgement);
+}
+
+bool EspNowBridge::sendPacket(const rivaler::Packet& packet) {
+  uint8_t wireBytes[rivaler::kMaxPacketBytes]{};
+  if (!rivaler::encodePacket(packet, wireBytes, sizeof(wireBytes))) {
     return false;
   }
 
   return esp_now_send(kRemoteNanoMac,
-                      reinterpret_cast<const uint8_t*>(&packet),
+                      wireBytes,
                       rivaler::packetWireSize(packet)) == ESP_OK;
 }
 
@@ -78,11 +100,19 @@ bool EspNowBridge::hasHealthyRemoteLink(unsigned long nowMs) const {
   return healthy;
 }
 
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 5, 0)
+void EspNowBridge::onSend(const esp_now_send_info_t* sendInfo,
+                           esp_now_send_status_t status) {
+  (void)sendInfo;
+  (void)status;
+}
+#else
 void EspNowBridge::onSend(const uint8_t* macAddress,
                            esp_now_send_status_t status) {
   (void)macAddress;
   (void)status;
 }
+#endif
 
 #if ESP_IDF_VERSION_MAJOR >= 5
 void EspNowBridge::onReceive(const esp_now_recv_info_t* receiveInfo,
@@ -110,9 +140,8 @@ void EspNowBridge::handleReceive(const uint8_t* macAddress,
   }
 
   rivaler::Packet receivedPacket{};
-  memcpy(&receivedPacket, data, dataLength);
-  if (!rivaler::isPacketValid(receivedPacket,
-                              static_cast<uint8_t>(dataLength)) ||
+  if (!rivaler::decodePacket(data, static_cast<uint8_t>(dataLength),
+                             receivedPacket) ||
       receivedPacket.type != rivaler::MessageType::kRemoteControl) {
     return;
   }
@@ -123,6 +152,27 @@ void EspNowBridge::handleReceive(const uint8_t* macAddress,
   }
 
   portENTER_CRITICAL(&packetMutex_);
+  const bool duplicate = hasLastRemoteControlSequence_ &&
+                         receivedPacket.sequence == lastRemoteControlSequence_;
+  if (receivedControl.edgeEvents != 0) {
+    rivaler::AcknowledgementPayload acknowledgementPayload{};
+    acknowledgementPayload.acknowledgedSequence = receivedPacket.sequence;
+    acknowledgementPayload.accepted = true;
+    acknowledgementPayload.rejectionReason = rivaler::SafetyFault::kNone;
+    rivaler::initializePacket(pendingAcknowledgement_,
+                              rivaler::MessageType::kAcknowledgement,
+                              receivedPacket.sequence);
+    acknowledgementPending_ = rivaler::setPayload(pendingAcknowledgement_,
+                                                   acknowledgementPayload);
+  }
+
+  hasReceivedRemoteControl_ = true;
+  lastRemoteControlMs_ = millis();
+  if (duplicate) {
+    portEXIT_CRITICAL(&packetMutex_);
+    return;
+  }
+
   if (remoteControlAvailable_) {
     rivaler::RemoteControlPayload pendingControl{};
     if (rivaler::readPayload(latestRemoteControl_, pendingControl)) {
@@ -133,7 +183,7 @@ void EspNowBridge::handleReceive(const uint8_t* macAddress,
 
   latestRemoteControl_ = receivedPacket;
   remoteControlAvailable_ = true;
-  hasReceivedRemoteControl_ = true;
-  lastRemoteControlMs_ = millis();
+  hasLastRemoteControlSequence_ = true;
+  lastRemoteControlSequence_ = receivedPacket.sequence;
   portEXIT_CRITICAL(&packetMutex_);
 }

@@ -9,13 +9,13 @@ void GigaSerialBridge::begin(unsigned long baud, int receivePin,
 }
 
 bool GigaSerialBridge::sendPacket(const rivaler::Packet& packet) {
-  if (!rivaler::isPacketValid(packet, rivaler::packetWireSize(packet))) {
+  uint8_t wireBytes[rivaler::kMaxPacketBytes]{};
+  const uint8_t wireSize = rivaler::packetWireSize(packet);
+  if (!rivaler::encodePacket(packet, wireBytes, sizeof(wireBytes))) {
     return false;
   }
 
-  const size_t wireSize = rivaler::packetWireSize(packet);
-  return serialPort_.write(reinterpret_cast<const uint8_t*>(&packet),
-                           wireSize) == wireSize;
+  return serialPort_.write(wireBytes, wireSize) == wireSize;
 }
 
 bool GigaSerialBridge::readPacket(rivaler::Packet& packet) {

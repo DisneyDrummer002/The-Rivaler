@@ -17,20 +17,25 @@ connection diagram.
 | D5 | Eject SD button |
 | D6 | Joystick push / Follow Line button |
 | D7 | Launcher arm switch |
+| D12 | Wireless software emergency-stop button |
 | D8 | Active buzzer signal |
 | D9 | Launcher Armed LED |
 | D10 | Line Detected LED |
 | D11 | Line Following LED |
 
 The Remote Nano uses ESP-NOW with Robot Nano MAC
-`20:6E:F1:32:60:BC`. Its own MAC is `3C:84:27:FC:EF:2C`.
+`3C:84:27:FC:EF:2C`. Its own MAC is `20:6E:F1:32:60:BC`.
+
+The remote uses five discrete buttons: Quick Shoot, Rapid Fire, Take Picture,
+Eject SD, and wireless emergency stop. The joystick push switch controls
+Follow Line, and the separate switch controls launcher arming.
 
 ## Robot Nano ESP32
 
 | Pin | Connection |
 | --- | --- |
-| D6 | UART RX from GIGA D14 / TX3 |
-| D7 | UART TX to GIGA D15 / RX3 |
+| D6 | UART RX from GIGA D14 / Serial4 TX3 |
+| D7 | UART TX to GIGA D15 / Serial4 RX3 |
 | D8 | UART TX to Mega D19 / RX1 |
 
 The Mega-to-Nano UART return wire is intentionally absent.
@@ -43,15 +48,15 @@ The Mega-to-Nano UART return wire is intentionally absent.
 | D4, D5 | Shield channel B: enable, speed |
 | D7, D10 | Shield channel C: enable, speed |
 | D8, D9 | Shield channel D: enable, speed |
-| D14, D15 | Serial3 TX/RX for Robot Nano, dedicated UART exception |
+| D14, D15 | Serial4 TX/RX for Robot Nano (board labels TX3/RX3), dedicated UART exception |
 | A0, A1 | Left and right line sensors |
 | D22, D23 | Front ultrasonic trigger/echo |
 | D24, D25 | Downward ultrasonic trigger/echo |
 | D26, D27 | Left ultrasonic trigger/echo |
 | D28, D29 | Right ultrasonic trigger/echo |
 | D30, D31 | Rear ultrasonic trigger/echo |
-| D32 | Launcher servo signal |
-| D33, D34, D35 | External launcher H-bridge: IN1, IN2, enable/PWM |
+| D32 | 360-degree positional launcher magazine servo; homes at 0 degrees and indexes 45, 90, 135, 180, -45, -90, -135, then 0 |
+| D33, D34, D35 | External launcher H-bridge: IN1, IN2, full-speed enable |
 
 Connect the left bipolar stepper to shield channels A and B, and the right
 bipolar stepper to channels C and D. The shield has no remaining H-bridge

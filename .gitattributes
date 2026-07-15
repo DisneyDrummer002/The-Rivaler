@@ -1,0 +1,6 @@
+* text=auto eol=lf
+
+# Office documents and archives are binary files.
+*.docx binary
+*.xlsx binary
+*.zip binary

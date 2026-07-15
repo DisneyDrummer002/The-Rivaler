@@ -7,10 +7,11 @@ namespace rivaler_giga_config {
 constexpr int kUnassignedPin = -1;
 
 // UART-only exception to the GIGA's D20-and-higher external GPIO convention.
-// Serial3 uses its dedicated pins; they are not general-purpose sensor pins.
+// Serial4 uses D14/D15 (TX3/RX3 on the board labels); they are not
+// general-purpose sensor pins.
 constexpr unsigned long kRobotNanoUartBaud = 115200;
-constexpr int kRobotNanoUartTxPin = 14;  // Serial3 TX, to Robot Nano D6.
-constexpr int kRobotNanoUartRxPin = 15;  // Serial3 RX, from Robot Nano D7.
+constexpr int kRobotNanoUartTxPin = 14;  // Serial4 TX, to Robot Nano D6.
+constexpr int kRobotNanoUartRxPin = 15;  // Serial4 RX, from Robot Nano D7.
 constexpr unsigned long kRemoteCommandTimeoutMs = 300;
 
 // KS0448 L298P motor shield. These pins are fixed by the shield and must not
@@ -39,40 +40,79 @@ constexpr int kRightStepperCoil2SpeedPin = kMotorDSpeedPin;
 // stopped until a valid joystick command arrives from the remote.
 constexpr bool kDriveOutputsEnabled = true;
 constexpr int8_t kMaximumDriveCommandPercent = 60;
+constexpr int8_t kDriveJoystickDeadbandPercent = 12;
+constexpr bool kStartupDriveTestEnabled = true;
+constexpr unsigned long kStartupDriveTestDurationMs = 1000;
+constexpr int8_t kStartupDriveTestPercent = 60;
 constexpr bool kLeftDriveDirectionReversed = false;
 constexpr bool kRightDriveDirectionReversed = false;
-constexpr uint8_t kStepperMinimumCoilPwm = 64;
-constexpr uint8_t kStepperMaximumCoilPwm = 80;
-constexpr uint16_t kStepperMinimumRateHz = 20;
-constexpr uint16_t kStepperMaximumRateHz = 90;
+// Spread each joystick reading across its nominal 50 ms update window. The
+// full-speed interval is currently 4 ms; lower commands receive proportionally
+// fewer, more widely spaced steps for smooth differential steering.
+constexpr unsigned long kStepperStepIntervalUs = 4000;
+constexpr unsigned long kDriveCommandWindowUs = 50000;
+constexpr uint16_t kStepperStepsPerCommandUpdate =
+    kDriveCommandWindowUs / kStepperStepIntervalUs;
+constexpr uint16_t kStepperMaximumQueuedSteps =
+    kStepperStepsPerCommandUpdate * 2;
+// Channels A/B remain ordinary digital enables. Only channels C/D use PWM.
+constexpr uint8_t kChannelsCdEnablePwm = 255;
 constexpr unsigned long kRobotStatusTransmitIntervalMs = 250;
 
-// Dedicated external H-bridge for the launcher DC motor. These three GIGA
-// signals match common IN1/IN2/enable-PWM H-bridge modules.
+// Dedicated external H-bridge for the launcher DC motor. The enable line is
+// digital and drives the motor at full speed while armed.
 constexpr bool kLauncherMotorDriverConfigured = true;
 constexpr int kLauncherMotorInputAPin = 33;
 constexpr int kLauncherMotorInputBPin = 34;
-constexpr int kLauncherMotorEnablePwmPin = 35;
-constexpr uint8_t kLauncherMotorPwm = 80;
+constexpr int kLauncherMotorEnablePin = 35;
 
-// The magazine servo is continuous-rotation. Set motion enabled only after
-// measuring the pulse values and duration that produce a 45-degree movement.
-constexpr int kLauncherServoPin = 32;
-constexpr bool kLauncherServoMotionEnabled = false;
-constexpr uint16_t kLauncherServoNeutralPulseUs = 1500;
-constexpr uint16_t kLauncherServoForwardPulseUs = 1600;
-constexpr uint16_t kLauncherServoReversePulseUs = 1400;
-constexpr unsigned long kLauncherServoQuarterTurnDurationMs = 0;
+// The magazine uses a 360-degree positional servo. Signed magazine angles are
+// mapped directly to the servo's full pulse range; zero is the startup home.
+constexpr int kLauncherServoPin = 11;
+constexpr int16_t kLauncherServoMinimumAngleDeg = -180;
+constexpr int16_t kLauncherServoMaximumAngleDeg = 180;
+constexpr int16_t kLauncherServoHomeAngleDeg = 0;
+constexpr uint16_t kLauncherServoMinimumPulseUs = 500;
+constexpr uint16_t kLauncherServoMaximumPulseUs = 2500;
+constexpr unsigned long kLauncherServoSettleDurationMs = 350;
 
 // Analog pins do not conflict with the shield's fixed motor-control pins.
 constexpr int kLeftLineSensorPin = A0;
 constexpr int kRightLineSensorPin = A1;
-constexpr bool kLineDetectionEnabled = false;
-constexpr uint16_t kLineDetectThreshold = 0;  // Calibrate before enabling.
-constexpr bool kLineSensorHighMeansLine = true;
 constexpr uint8_t kLineSensorAdcResolutionBits = 12;
 constexpr unsigned long kLineSensorSampleIntervalMs = 10;
 constexpr uint8_t kLineSensorFilterDivisor = 4;
+
+// Fill these four readings during bring-up. Each sensor needs an average raw
+// reading over the normal floor and over the line. Either polarity is valid.
+constexpr bool kLineSensorCalibrationConfigured = true;
+constexpr uint16_t kLeftLineSensorFloorReading = 275;
+constexpr uint16_t kLeftLineSensorLineReading = 4000;
+constexpr uint16_t kRightLineSensorFloorReading = 275;
+constexpr uint16_t kRightLineSensorLineReading = 4000;
+constexpr uint16_t kLineSensorMinimumCalibrationSpan = 200;
+constexpr uint16_t kLineDetectedStrength = 350;  // 0 to 1000.
+constexpr unsigned long kLineSensorStaleTimeoutMs = 100;
+constexpr bool kLineSensorCalibrationLoggingEnabled = true;
+constexpr unsigned long kLineSensorCalibrationLogIntervalMs = 250;
+
+// Line-following control. These are conservative first-pass values; tune them
+// only after sensor calibration and a low-speed wheel test.
+constexpr int8_t kLineFollowingCruisePercent = 36;
+constexpr int8_t kLineFollowingMinimumForwardPercent = 20;
+constexpr int8_t kLineFollowingMaximumCorrectionPercent = 45;
+constexpr float kLineFollowingProportionalGain = 0.045f;
+constexpr float kLineFollowingDerivativeGain = 0.00012f;
+constexpr float kLineFollowingDerivativeFilter = 0.25f;
+constexpr int8_t kLineFollowingCurveSlowdownPercent = 14;
+constexpr int16_t kLineFollowingErrorDeadband = 20;
+constexpr int16_t kLineFollowingSearchDirectionError = 80;
+constexpr bool kLineFollowingSteeringReversed = false;
+constexpr int8_t kLineFollowingManualOverridePercent = 15;
+constexpr unsigned long kLineFollowingLossGraceMs = 180;
+constexpr int8_t kLineFollowingGapForwardPercent = 15;
+constexpr int8_t kLineFollowingSearchTurnPercent = 22;
+constexpr unsigned long kLineFollowingSearchTimeoutMs = 1500;
 
 // All external general-purpose digital connections are D22 or higher.
 constexpr int kFrontUltrasonicTriggerPin = 22;
@@ -89,9 +129,12 @@ constexpr int kRearUltrasonicEchoPin = 31;
 // This project's HC-SR04 modules have been verified operating with the GIGA
 // at 3.3 V, so their Echo signals connect directly to the configured inputs.
 constexpr bool kUltrasonicEchoRequiresLevelShift = false;
-constexpr bool kUltrasonicSafetyEnabled = false;
-constexpr uint16_t kWallStopDistanceCm = 50;
+constexpr bool kUltrasonicSafetyEnabled = true;
+constexpr uint16_t kWallStopDistanceCm = 15;
 constexpr uint16_t kNoFloorDistanceCm = 25;
+constexpr bool kUltrasonicDiagnosticLoggingEnabled = false;
+constexpr unsigned long kUltrasonicDiagnosticLogIntervalMs = 250;
+constexpr bool kRemoteControlDiagnosticLoggingEnabled = false;
 constexpr unsigned long kUltrasonicTimeoutUs = 30000;
 constexpr unsigned long kUltrasonicMeasurementIntervalUs = 60000;
 constexpr unsigned long kUltrasonicTriggerPulseUs = 10;

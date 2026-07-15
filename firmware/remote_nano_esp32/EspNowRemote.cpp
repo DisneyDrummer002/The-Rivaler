@@ -43,12 +43,17 @@ bool EspNowRemote::begin() {
 
 bool EspNowRemote::sendRemoteControl(const rivaler::Packet& packet) {
   if (packet.type != rivaler::MessageType::kRemoteControl ||
-      !rivaler::isPacketValid(packet, rivaler::packetWireSize(packet))) {
+      !rivaler::isPacketValid(packet)) {
+    return false;
+  }
+
+  uint8_t wireBytes[rivaler::kMaxPacketBytes]{};
+  if (!rivaler::encodePacket(packet, wireBytes, sizeof(wireBytes))) {
     return false;
   }
 
   return esp_now_send(kRobotNanoMac,
-                      reinterpret_cast<const uint8_t*>(&packet),
+                      wireBytes,
                       rivaler::packetWireSize(packet)) == ESP_OK;
 }
 
@@ -64,6 +69,18 @@ bool EspNowRemote::takeLatestRobotStatus(
   return hasStatus;
 }
 
+bool EspNowRemote::takeLatestAcknowledgement(
+    rivaler::AcknowledgementPayload& acknowledgement) {
+  portENTER_CRITICAL(&statusMutex_);
+  const bool hasAcknowledgement = acknowledgementAvailable_;
+  if (hasAcknowledgement) {
+    acknowledgement = latestAcknowledgement_;
+    acknowledgementAvailable_ = false;
+  }
+  portEXIT_CRITICAL(&statusMutex_);
+  return hasAcknowledgement;
+}
+
 bool EspNowRemote::hasHealthyStatusLink(unsigned long nowMs) const {
   portENTER_CRITICAL(&statusMutex_);
   const bool healthy = hasReceivedStatus_ &&
@@ -73,11 +90,19 @@ bool EspNowRemote::hasHealthyStatusLink(unsigned long nowMs) const {
   return healthy;
 }
 
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 5, 0)
+void EspNowRemote::onSend(const esp_now_send_info_t* sendInfo,
+                           esp_now_send_status_t status) {
+  (void)sendInfo;
+  (void)status;
+}
+#else
 void EspNowRemote::onSend(const uint8_t* macAddress,
                            esp_now_send_status_t status) {
   (void)macAddress;
   (void)status;
 }
+#endif
 
 #if ESP_IDF_VERSION_MAJOR >= 5
 void EspNowRemote::onReceive(const esp_now_recv_info_t* receiveInfo,
@@ -105,9 +130,24 @@ void EspNowRemote::handleReceive(const uint8_t* macAddress,
   }
 
   rivaler::Packet packet{};
-  memcpy(&packet, data, dataLength);
-  if (!rivaler::isPacketValid(packet, static_cast<uint8_t>(dataLength)) ||
-      packet.type != rivaler::MessageType::kRobotStatus) {
+  if (!rivaler::decodePacket(data, static_cast<uint8_t>(dataLength), packet)) {
+    return;
+  }
+
+  if (packet.type == rivaler::MessageType::kAcknowledgement) {
+    rivaler::AcknowledgementPayload acknowledgement{};
+    if (!rivaler::readPayload(packet, acknowledgement)) {
+      return;
+    }
+
+    portENTER_CRITICAL(&statusMutex_);
+    latestAcknowledgement_ = acknowledgement;
+    acknowledgementAvailable_ = true;
+    portEXIT_CRITICAL(&statusMutex_);
+    return;
+  }
+
+  if (packet.type != rivaler::MessageType::kRobotStatus) {
     return;
   }
 

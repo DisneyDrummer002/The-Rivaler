@@ -80,6 +80,7 @@ void loop() {
   const unsigned long nowMs = millis();
 
   if (espNowReady) {
+    espNowBridge.sendPendingAcknowledgement();
     forwardPendingRemoteControl();
     sendRemoteTimeoutStop(nowMs);
   }

@@ -4,6 +4,11 @@
 
 using namespace rivaler_giga_config;
 
+static_assert(kLineSensorFilterDivisor > 0,
+              "Line sensor filter divisor must be nonzero");
+static_assert(kLineDetectedStrength <= 1000,
+              "Line detection strength must be between 0 and 1000");
+
 void LineSensors::begin() {
   analogReadResolution(kLineSensorAdcResolutionBits);
 }
@@ -37,18 +42,57 @@ bool LineSensors::isLineDetected() const {
 }
 
 bool LineSensors::isLeftOnLine() const {
-  return hasSample_ && kLineDetectionEnabled && isLineValue(leftFiltered_);
+  return hasSample_ && isCalibrationValid() &&
+         leftLineStrength() >= kLineDetectedStrength;
 }
 
 bool LineSensors::isRightOnLine() const {
-  return hasSample_ && kLineDetectionEnabled && isLineValue(rightFiltered_);
+  return hasSample_ && isCalibrationValid() &&
+         rightLineStrength() >= kLineDetectedStrength;
+}
+
+bool LineSensors::isCalibrationValid() const {
+  const int32_t leftSpan =
+      static_cast<int32_t>(kLeftLineSensorLineReading) -
+      static_cast<int32_t>(kLeftLineSensorFloorReading);
+  const int32_t rightSpan =
+      static_cast<int32_t>(kRightLineSensorLineReading) -
+      static_cast<int32_t>(kRightLineSensorFloorReading);
+  return kLineSensorCalibrationConfigured &&
+         abs(leftSpan) >= kLineSensorMinimumCalibrationSpan &&
+         abs(rightSpan) >= kLineSensorMinimumCalibrationSpan;
+}
+
+bool LineSensors::hasFreshSample(unsigned long nowMs) const {
+  return hasSample_ &&
+         nowMs - lastSampleMs_ <= kLineSensorStaleTimeoutMs;
 }
 
 uint16_t LineSensors::leftReading() const { return leftFiltered_; }
 
 uint16_t LineSensors::rightReading() const { return rightFiltered_; }
 
-bool LineSensors::isLineValue(uint16_t value) {
-  return kLineSensorHighMeansLine ? value >= kLineDetectThreshold
-                                  : value <= kLineDetectThreshold;
+uint16_t LineSensors::leftLineStrength() const {
+  return normalizedLineStrength(leftFiltered_, kLeftLineSensorFloorReading,
+                                kLeftLineSensorLineReading);
+}
+
+uint16_t LineSensors::rightLineStrength() const {
+  return normalizedLineStrength(rightFiltered_, kRightLineSensorFloorReading,
+                                kRightLineSensorLineReading);
+}
+
+unsigned long LineSensors::sampleTimestampMs() const { return lastSampleMs_; }
+
+uint16_t LineSensors::normalizedLineStrength(uint16_t reading,
+                                             uint16_t floorReading,
+                                             uint16_t lineReading) {
+  const int32_t span = static_cast<int32_t>(lineReading) - floorReading;
+  if (abs(span) < kLineSensorMinimumCalibrationSpan) {
+    return 0;
+  }
+
+  const int32_t offset = static_cast<int32_t>(reading) - floorReading;
+  const int32_t strength = (offset * 1000L) / span;
+  return static_cast<uint16_t>(constrain(strength, 0L, 1000L));
 }

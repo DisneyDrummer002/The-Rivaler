@@ -10,11 +10,18 @@ class LineSensors {
   bool isLineDetected() const;
   bool isLeftOnLine() const;
   bool isRightOnLine() const;
+  bool isCalibrationValid() const;
+  bool hasFreshSample(unsigned long nowMs) const;
   uint16_t leftReading() const;
   uint16_t rightReading() const;
+  uint16_t leftLineStrength() const;
+  uint16_t rightLineStrength() const;
+  unsigned long sampleTimestampMs() const;
 
  private:
-  static bool isLineValue(uint16_t value);
+  static uint16_t normalizedLineStrength(uint16_t reading,
+                                         uint16_t floorReading,
+                                         uint16_t lineReading);
 
   uint16_t leftFiltered_ = 0;
   uint16_t rightFiltered_ = 0;

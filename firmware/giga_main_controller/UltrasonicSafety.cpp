@@ -106,6 +106,10 @@ bool UltrasonicSafety::hasSafetyWarning() const {
   return isWallTooClose() || isNoFloorDetected();
 }
 
+bool UltrasonicSafety::isMeasurementInProgress() const {
+  return phase_ != MeasurementPhase::kIdle;
+}
+
 void UltrasonicSafety::completeMeasurement(bool valid, uint16_t distanceCm,
                                            unsigned long nowUs) {
   Sensor& activeSensor = sensors_[activeSensorIndex_];

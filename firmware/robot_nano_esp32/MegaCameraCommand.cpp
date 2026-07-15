@@ -65,11 +65,11 @@ void MegaCameraCommand::sendPrepareSdEject(uint8_t& nextSequence) {
 }
 
 bool MegaCameraCommand::sendPacket(const rivaler::Packet& packet) {
-  if (!rivaler::isPacketValid(packet, rivaler::packetWireSize(packet))) {
+  uint8_t wireBytes[rivaler::kMaxPacketBytes]{};
+  const uint8_t wireSize = rivaler::packetWireSize(packet);
+  if (!rivaler::encodePacket(packet, wireBytes, sizeof(wireBytes))) {
     return false;
   }
 
-  const size_t wireSize = rivaler::packetWireSize(packet);
-  return serialPort_.write(reinterpret_cast<const uint8_t*>(&packet),
-                           wireSize) == wireSize;
+  return serialPort_.write(wireBytes, wireSize) == wireSize;
 }

@@ -11,7 +11,7 @@ depending on ad-hoc text parsing.
 | 0 | Start | `0xA5` |
 | 1 | Version | `1` |
 | 2 | Type | Message type identifier |
-| 3 | Sequence | Sender-local counter, incremented for every packet |
+| 3 | Sequence | Sender-local sequence; event retransmissions reuse their original value |
 | 4 | Payload length | `0` through `24` |
 | 5... | Payload | Binary payload for the packet type |
 | Final | Checksum | XOR of bytes 1 through the final payload byte |
@@ -27,8 +27,8 @@ version, exact received length, payload length, and checksum before acting.
 | Robot Nano ESP32 and Arduino GIGA | Two-way UART | Remote control, robot status, acknowledgement |
 | Robot Nano ESP32 to Arduino Mega | One-way UART | Camera command |
 
-The Remote Nano (`3C:84:27:FC:EF:2C`) and Robot Nano
-(`20:6E:F1:32:60:BC`) are paired peers. ESP-NOW traffic is bidirectional;
+The Remote Nano (`20:6E:F1:32:60:BC`) and Robot Nano
+(`3C:84:27:FC:EF:2C`) are paired peers. ESP-NOW traffic is bidirectional;
 the labels only identify each board's MAC address.
 
 ## Message payloads
@@ -42,9 +42,10 @@ the labels only identify each board's MAC address.
 | `heldButtons` | unsigned 16-bit flags | Current state of arm switch, line-follow button, and emergency stop |
 | `edgeEvents` | unsigned 16-bit flags | One-time button presses: quick shoot, rapid fire, take picture, eject SD, line-follow press |
 
-`heldButtons` is sent with every control packet. `edgeEvents` is cleared by the
-remote after it has been included in one successfully queued transmission, so
-the GIGA cannot accidentally stack repeat actions from a held button.
+`heldButtons` is sent with every control packet. For packets containing
+`edgeEvents`, the Remote Nano retransmits the same sequence until the Robot
+Nano acknowledges receipt. The Robot Nano suppresses duplicate sequences, so
+retransmission cannot stack launcher or camera actions.
 
 ### `kRobotStatus` (`0x20`)
 
@@ -74,9 +75,10 @@ events. The Arduino Mega does not send command replies back over this link.
 | `accepted` | unsigned 8-bit | `1` when accepted, `0` when rejected |
 | `rejectionReason` | unsigned 8-bit enum | `SafetyFault` value, otherwise `kNone` |
 
-Acknowledgements are optional diagnostics, not permission to keep moving.
-The GIGA still stops drive motion and disarms the launcher when valid remote
-control packets time out.
+The Robot Nano acknowledges valid remote-control packets that contain one-shot
+events. An acknowledgement means the bridge received the packet; it is not
+permission to keep moving. The GIGA still stops drive motion and disarms the
+launcher when valid remote control packets time out.
 
 ## Safety rules at the protocol boundary
 

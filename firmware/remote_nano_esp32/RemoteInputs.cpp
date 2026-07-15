@@ -20,6 +20,8 @@ void RemoteInputs::begin() {
                    nowMs);
   initializeButton(armSwitch_, kArmSwitchPin, rivaler::kArmSwitchHeld, 0,
                    nowMs);
+  initializeButton(emergencyStopButton_, kEmergencyStopButtonPin,
+                   rivaler::kEmergencyStopHeld, 0, nowMs);
 }
 
 void RemoteInputs::update(unsigned long nowMs) {
@@ -29,9 +31,11 @@ void RemoteInputs::update(unsigned long nowMs) {
   updateButton(ejectSdButton_, nowMs);
   updateButton(followLineButton_, nowMs);
   updateButton(armSwitch_, nowMs);
+  updateButton(emergencyStopButton_, nowMs);
 }
 
-rivaler::RemoteControlPayload RemoteInputs::createControlPayload() const {
+rivaler::RemoteControlPayload RemoteInputs::createControlPayload(
+    uint16_t edgeEvents) const {
   rivaler::RemoteControlPayload payload{};
   payload.joystickX = scaleJoystickAxis(analogRead(kJoystickXPin),
                                         kJoystickXCenter);
@@ -44,6 +48,7 @@ rivaler::RemoteControlPayload RemoteInputs::createControlPayload() const {
   const InputButton* buttons[] = {
       &quickShootButton_, &rapidFireButton_, &takePictureButton_,
       &ejectSdButton_,    &followLineButton_, &armSwitch_,
+      &emergencyStopButton_,
   };
   for (const InputButton* button : buttons) {
     if (button->stableActive) {
@@ -51,12 +56,14 @@ rivaler::RemoteControlPayload RemoteInputs::createControlPayload() const {
     }
   }
 
-  payload.edgeEvents = pendingEvents_;
+  payload.edgeEvents = edgeEvents;
   return payload;
 }
 
-void RemoteInputs::markEventsQueued(uint16_t queuedEvents) {
-  pendingEvents_ &= ~queuedEvents;
+uint16_t RemoteInputs::pendingEvents() const { return pendingEvents_; }
+
+void RemoteInputs::acknowledgeEvents(uint16_t acknowledgedEvents) {
+  pendingEvents_ &= ~acknowledgedEvents;
 }
 
 bool RemoteInputs::isInputActive(int pin) {

@@ -1,0 +1,16 @@
+# Arduino build output
+.build/
+
+# Local document and spreadsheet work files
+.tmp-doc-review/
+tmp_bom_update/
+*.inspect.ndjson
+~$*
+
+# Editor and operating-system clutter
+.DS_Store
+Thumbs.db
+*.log
+*.swp
+*.swo
+

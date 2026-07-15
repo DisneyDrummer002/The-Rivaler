@@ -12,6 +12,7 @@ class UltrasonicSafety {
   bool isWallTooClose() const;
   bool isNoFloorDetected() const;
   bool hasSafetyWarning() const;
+  bool isMeasurementInProgress() const;
 
  private:
   enum class MeasurementPhase : uint8_t {
